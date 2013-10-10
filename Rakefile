@@ -5,6 +5,8 @@ require 'hatchet/tasks'
 S3_BUCKET_NAME  = "heroku-buildpack-ruby"
 VENDOR_URL      = "https://s3.amazonaws.com/#{S3_BUCKET_NAME}"
 
+FOOAPP = "/tmp/app"
+
 def s3_tools_dir
   File.expand_path("../support/s3", __FILE__)
 end
@@ -55,7 +57,7 @@ def install_gem(gem, version)
 end
 
 def build_ruby_command(name, output, prefix, usr_dir, tmpdir, rubygems = nil)
-  vulcan_prefix = "/app/vendor/#{output}"
+  vulcan_prefix = "#{FOOAPP}/vendor/#{output}"
   build_command = [
     # need to move libyaml/libffi to dirs we can see
     "mv #{usr_dir} /tmp",
@@ -64,7 +66,7 @@ def build_ruby_command(name, output, prefix, usr_dir, tmpdir, rubygems = nil)
     "make install"
   ]
   build_command << "#{prefix}/bin/ruby /tmp/#{usr_dir}/rubygems-#{rubygems}/setup.rb" if rubygems
-  build_command << "mv #{prefix} /app/vendor/#{output}" if prefix != "/app/vendor/#{output}"
+  build_command << "mv #{prefix} #{FOOAPP}/vendor/#{output}" if prefix != "#{FOOAPP}/vendor/#{output}"
   build_command = build_command.join(" && ")
 
   sh "vulcan build -v -o #{output}.tgz --prefix #{vulcan_prefix} --source #{name} --command=\"#{build_command}\""
@@ -108,7 +110,7 @@ task "libyaml:install", :version do |t, args|
   Dir.mktmpdir("libyaml-") do |tmpdir|
     Dir.chdir(tmpdir) do |dir|
       FileUtils.rm_rf("#{tmpdir}/*")
-      prefix = "/app/vendor/yaml-#{version}"
+      prefix = "#{FOOAPP}/vendor/yaml-#{version}"
 
       sh "curl http://pyyaml.org/download/libyaml/yaml-#{version}.tar.gz -s -o - | tar vzxf -"
 
@@ -128,7 +130,7 @@ desc "install node"
 task "node:install", :version do |t, args|
   version = args[:version]
   name    = "node-#{version}"
-  prefix  = "/app/vendor/node-v#{version}"
+  prefix  = "#{FOOAPP}/vendor/node-v#{version}"
   Dir.mktmpdir("node-") do |tmpdir|
     Dir.chdir(tmpdir) do |dir|
       FileUtils.rm_rf("#{tmpdir}/*")
@@ -174,7 +176,7 @@ task "ruby:install", :version do |t, args|
       end
 
       # runtime ruby
-      prefix  = "/app/vendor/#{name}"
+      prefix  = "#{FOOAPP}/vendor/#{name}"
       build_ruby_command(full_name, name, prefix, usr_dir, tmpdir, rubygems)
 
       # build ruby
@@ -192,7 +194,7 @@ task "rbx:install", :version do |t, args|
   version = args[:version]
   name    = "rubinius-#{version}"
   output  = "rbx-#{version}"
-  prefix  = "/app/vendor/#{output}"
+  prefix  = "#{FOOAPP}/vendor/#{output}"
 
   Dir.mktmpdir("rbx-") do |tmpdir|
     Dir.chdir(tmpdir) do |dir|
@@ -230,7 +232,7 @@ task "rbx2dev:install", :version, :ruby_version do |t, args|
         sh "curl #{VENDOR_URL}/libffi-3.0.10.tgz -s -o - | tar vzxf -"
       end
 
-      prefix = "/app/vendor/#{output}"
+      prefix = "#{FOOAPP}/vendor/#{output}"
       build_rbx_command(name, output, prefix, usr_dir, tmpdir, ruby_version)
 
       # rbx build
@@ -270,12 +272,12 @@ task "jruby:install", :version, :ruby_version do |t, args|
         "rm bin/*.dll",
         "rm bin/*.exe",
         "ln -s jruby bin/ruby",
-        "mkdir -p /app/vendor/#{output}",
-        "mv bin /app/vendor/#{output}",
-        "mv lib /app/vendor/#{output}"
+        "mkdir -p #{FOOAPP}/vendor/#{output}",
+        "mv bin #{FOOAPP}/vendor/#{output}",
+        "mv lib #{FOOAPP}/vendor/#{output}"
       ]
       build_command = build_command.join(" && ")
-      sh "vulcan build -v -o #{output}.tgz --prefix /app/vendor/#{output} --source #{src_folder} --command=\"#{build_command}\""
+      sh "vulcan build -v -o #{output}.tgz --prefix #{FOOAPP}/vendor/#{output} --source #{src_folder} --command=\"#{build_command}\""
 
       s3_upload(tmpdir, output)
     end
@@ -325,7 +327,7 @@ desc "install libffi"
 task "libffi:install", :version do |t, args|
   version = args[:version]
   name    = "libffi-#{version}"
-  prefix  = "/app/vendor/#{name}"
+  prefix  = "#{FOOAPP}/vendor/#{name}"
   Dir.mktmpdir("libffi-") do |tmpdir|
     Dir.chdir(tmpdir) do |dir|
       FileUtils.rm_rf("#{tmpdir}/*")
